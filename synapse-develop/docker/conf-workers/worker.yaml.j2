@@ -1,0 +1,34 @@
+# This is a configuration template for a single worker instance, and is
+# used by Dockerfile-workers.
+# Values will be change depending on whichever workers are selected when
+# running that image.
+
+worker_app: "{{ app }}"
+worker_name: "{{ name }}"
+
+worker_listeners:
+  - type: http
+{% if using_unix_sockets %}
+    path: "/run/worker.{{ port }}"
+{% else %}
+    port: {{ port }}
+{% endif %}
+{% if listener_resources %}
+    resources:
+      - names:
+{%- for resource in listener_resources %}
+        - {{ resource }}
+{%- endfor %}
+{% endif %}
+
+{# Controlled by SYNAPSE_ENABLE_METRICS #}
+{% if metrics_port %}
+  - type: metrics
+    # Prometheus does not support Unix sockets so we don't bother with
+    # `SYNAPSE_USE_UNIX_SOCKET`, https://github.com/prometheus/prometheus/issues/12024
+    port: {{ metrics_port }}
+{% endif %}
+
+worker_log_config: {{ worker_log_config_filepath }}
+
+{{ worker_extra_conf }}

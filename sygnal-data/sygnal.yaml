@@ -1,0 +1,60 @@
+## Sygnal Configuration for Lamma Push Notifications
+## https://github.com/matrix-org/sygnal
+
+log:
+  setup:
+    version: 1
+    formatters:
+      normal:
+        format: "%(asctime)s [%(process)d] %(levelname)s %(name)s %(message)s"
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: normal
+    root:
+      handlers: [console]
+      level: INFO
+    loggers:
+      sygnal:
+        level: DEBUG
+
+http:
+  bind_addresses: ['0.0.0.0']
+  port: 5000
+
+## Database — uses SQLite inside the container for simplicity
+db:
+  name: sqlite3
+  args:
+    dbfile: /data/sygnal.db
+
+metrics:
+  prometheus:
+    enabled: false
+
+apps:
+  ## Debug / development pusher (matches pusherAppID in DEBUG builds)
+  lamma.om.gcnt.ios.dev:
+    type: apns
+    keyfile: /data/AuthKey_48AFV585T5.p8
+    key_id: "48AFV585T5"       # ← Replace with your APNs Key ID from Apple Developer
+    team_id: "NCF7W3W327"      # Your Apple Team ID
+    topic: "lamma.om.gcnt"      # Bundle identifier
+    push_mode: "token"
+
+  ## Production pusher (matches pusherAppID in RELEASE builds)
+  lamma.om.gcnt.ios.prod:
+    type: apns
+    keyfile: /data/AuthKey_48AFV585T5.p8
+    key_id: "48AFV585T5"       # ← Replace with your APNs Key ID from Apple Developer
+    team_id: "NCF7W3W327"      # Your Apple Team ID
+    topic: "lamma.om.gcnt"      # Bundle identifier
+    push_mode: "token"
+
+  ## Android — FCM (Firebase Cloud Messaging)
+  ## Uncomment and configure when you have FCM credentials:
+  # lamma.om.gcnt.android:
+  #   type: gcm
+  #   api_version: v1
+  #   project_id: "YOUR_FIREBASE_PROJECT_ID"
+  #   service_account_file: /data/fcm_service_account.json

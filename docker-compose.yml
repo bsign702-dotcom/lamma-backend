@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+
+  synapse:
+    build:
+      context: ./synapse-develop
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    environment:
+      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+    volumes:
+      - ./synapse-data:/data
+      - ./synapse-develop/synapse/modules:/usr/local/lib/python3.13/site-packages/synapse/modules
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - 8008:8008
+    healthcheck:
+      test: ["CMD", "curl", "-fSs", "http://localhost:8008/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=synapse
+      - POSTGRES_PASSWORD=synapse_password
+      - POSTGRES_DB=synapse
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  sygnal:
+    image: matrixdotorg/sygnal:latest
+    restart: unless-stopped
+    volumes:
+      - ./sygnal-data:/data
+      - ./sygnal-data/sygnal.yaml:/sygnal.yaml:ro
+    ports:
+      - 5000:5000
+    depends_on:
+      synapse:
+        condition: service_healthy
+
+  element-web:
+    image: vectorim/element-web:latest
+    restart: unless-stopped
+    volumes:
+      - ./element-config.json:/app/config.json:ro
+    ports:
+      - 8080:80
+    depends_on:
+      - synapse
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit-config.yaml:/etc/livekit.yaml:ro
+    ports:
+      - 7880:7880/tcp
+      - 7881:7881/tcp
+      - 50100-50200:50100-50200/udp
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7880"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  lk-jwt-service:
+    image: ghcr.io/element-hq/lk-jwt-service:latest
+    restart: unless-stopped
+    environment:
+      - LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_KEY=lamma_dev_key
+      - LIVEKIT_SECRET=80ugLGtb2lpC6E0TgUXuhGP6GKrPirvooNO3cDkD03k=
+      - LIVEKIT_JWT_BIND=:8080
+      - LIVEKIT_FULL_ACCESS_HOMESERVERS=lamma
+      - LIVEKIT_INSECURE_SKIP_VERIFY_TLS=YES_I_KNOW_WHAT_I_AM_DOING
+    ports:
+      - 8090:8080
+    depends_on:
+      livekit:
+        condition: service_healthy
+      synapse:
+        condition: service_healthy

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LiveKit Connection Test</title>
+  <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 20px; }
+    .pass { color: #0f0; } .fail { color: #f44; } .info { color: #4af; }
+    #log { white-space: pre-wrap; line-height: 1.8; }
+    h1 { color: #4af; }
+  </style>
+</head>
+<body>
+  <h1>LiveKit Local Test</h1>
+  <div id="log"></div>
+  <script>
+    const url = 'ws://192.168.1.125:7880';
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2aWRlbyI6eyJyb29tQ3JlYXRlIjp0cnVlLCJyb29tSm9pbiI6dHJ1ZSwicm9vbSI6InRlc3Qtcm9vbS0zIiwiY2FuUHVibGlzaCI6dHJ1ZSwiY2FuU3Vic2NyaWJlIjp0cnVlLCJjYW5QdWJsaXNoRGF0YSI6dHJ1ZX0sInN1YiI6InRlc3QtdXNlci0zIiwiaXNzIjoibGFtbWFfZGV2X2tleSIsIm5iZiI6MTc3MjUxNzAwMSwiZXhwIjoxNzcyNTM4NjAxfQ.Ujex3e3PQ6cMyPU7azMGEd3PXYi8EAQVRKJQ-iQxiKA';
+    const log = document.getElementById('log');
+
+    function out(cls, msg) { log.innerHTML += `<span class="${cls}">${msg}</span>\n`; }
+
+    async function test() {
+      out('info', '--- LiveKit Connection Test ---');
+      out('info', `URL: ${url}`);
+
+      const room = new LivekitClient.Room();
+
+      room.on('connected', () => out('pass', 'PASS  Connected to room'));
+      room.on('disconnected', () => out('info', 'Disconnected'));
+
+      try {
+        out('info', 'Connecting...');
+        await room.connect(url, token);
+        out('pass', 'PASS  WebSocket + WebRTC established');
+        out('pass', `PASS  Room: ${room.name}, Participant: ${room.localParticipant.identity}`);
+
+        out('info', 'Publishing audio track...');
+        const audioTrack = await LivekitClient.createLocalAudioTrack();
+        await room.localParticipant.publishTrack(audioTrack);
+        out('pass', 'PASS  Audio published');
+
+        out('info', 'Publishing video track...');
+        const videoTrack = await LivekitClient.createLocalVideoTrack();
+        await room.localParticipant.publishTrack(videoTrack);
+        out('pass', 'PASS  Video published');
+
+        out('pass', '\n ALL TESTS PASSED - LiveKit is working!');
+
+        setTimeout(() => { room.disconnect(); out('info', 'Test complete, disconnected.'); }, 3000);
+      } catch (e) {
+        out('fail', `FAIL  ${e.message}`);
+      }
+    }
+
+    test();
+  </script>
+</body>
+</html>
