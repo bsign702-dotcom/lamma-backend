@@ -1,0 +1,82 @@
+# Configuration file for Synapse.
+#
+# This is a YAML file: see [1] for a quick introduction. Note in particular
+# that *indentation is important*: all the elements of a list or dictionary
+# should have the same indentation.
+#
+# [1] https://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html
+#
+# For more information on how to configure Synapse, including a complete accounting of
+# each option, go to docs/usage/configuration/config_documentation.md or
+# https://element-hq.github.io/synapse/latest/usage/configuration/config_documentation.html
+server_name: "lamma"
+public_baseurl: "http://212.72.24.79:8008/"
+pid_file: /data/homeserver.pid
+listeners:
+  - port: 8008
+    resources:
+    - compress: false
+      names:
+      - client
+      - federation
+    tls: false
+    type: http
+    x_forwarded: true
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: synapse_password
+    database: synapse
+    host: db
+    cp_min: 5
+    cp_max: 10
+log_config: "/data/lamma.log.config"
+media_store_path: /data/media_store
+registration_shared_secret: "TB*t.H,wc223.GJHJcdM.Voq#qyFhLrI~dHvV2,Rs_iqxBAO4_"
+report_stats: false
+macaroon_secret_key: "GQGRpF^lSQ5xEltI^xVF257H*l_V:3XNblLjGLRWr9*ENG_A8p"
+form_secret: "nD@ra_X-u-eXg=Y1ky+rgu.f0G*HKT1l62RdrEEtj0#^0L8D61"
+signing_key_path: "/data/lamma.signing.key"
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+# Allow registration (dev only — disable in production)
+enable_registration: true
+enable_registration_without_verification: true
+
+# Relaxed rate limits for development
+rc_login:
+  address:
+    per_second: 10
+    burst_count: 50
+  account:
+    per_second: 10
+    burst_count: 50
+
+# Allow Synapse to reach Sygnal push gateway on local/Docker network
+ip_range_whitelist:
+  - '192.168.0.0/16'
+  - '172.16.0.0/12'
+  - '10.0.0.0/8'
+
+# Lamma phone auth module
+modules:
+  - module: synapse.modules.lamma_phone_auth.LammaPhoneAuthModule
+    config: {}
+
+# Enable MatrixRTC experimental features
+experimental_features:
+  msc3266_enabled: true
+  msc4222_enabled: true
+  msc4140_enabled: true
+
+max_event_delay_duration: 24h
+
+# LiveKit SFU discovery via well-known
+extra_well_known_client_content:
+  org.matrix.msc4143.rtc_foci:
+    - type: "livekit"
+      livekit_service_url: "http://212.72.24.79:8090/sfu/get"
+
+# vim:ft=yaml
