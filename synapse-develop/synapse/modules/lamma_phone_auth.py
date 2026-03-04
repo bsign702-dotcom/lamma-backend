@@ -53,7 +53,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 OTP_TTL = 300  # seconds (5 minutes)
-MATRIX_HOMESERVER_URL = "http://192.168.1.125:8008"
+MATRIX_HOMESERVER_URL = "http://212.72.24.79:8008"
 # Internal password set for every OTP user so Matrix UIA (encryption reset, etc.) works.
 # The iOS app auto-submits this — the user never sees a password prompt.
 LAMMA_INTERNAL_PASSWORD = "_lamma_otp_internal_"

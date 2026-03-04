@@ -6,7 +6,7 @@ rtc:
   tcp_port: 7881
   port_range_start: 50100
   port_range_end: 50200
-  node_ip: 192.168.1.125
+  node_ip: 212.72.24.79
   use_external_ip: false
 
 room:
