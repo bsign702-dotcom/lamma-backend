@@ -41,7 +41,14 @@ from twisted.web import http
 from twisted.web.resource import Resource
 from twisted.web.server import NOT_DONE_YET, Request
 
+from twisted.internet.threads import deferToThread
+
 from synapse.module_api import JsonDict, LoginResponse, ModuleApi
+
+try:
+    import requests as http_requests
+except ImportError:
+    http_requests = None
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +58,86 @@ MATRIX_HOMESERVER_URL = "http://192.168.1.125:8008"
 # The iOS app auto-submits this — the user never sees a password prompt.
 LAMMA_INTERNAL_PASSWORD = "_lamma_otp_internal_"
 
-# In-memory store: { phone_e164: (otp, expiry_timestamp) }
+# In-memory store: { phone_e164: (otp_or_auth_id, expiry_timestamp) }
 _otp_store: Dict[str, Tuple[str, float]] = {}
+
+
+# ---------------------------------------------------------------------------
+# Omantel OTP provider
+# ---------------------------------------------------------------------------
+
+class OmantelOTPProvider:
+    """Sends and validates OTP via Omantel API (production)."""
+
+    def __init__(self, config: dict) -> None:
+        if http_requests is None:
+            raise RuntimeError("'requests' package is required for Omantel OTP. pip install requests")
+        self.base_url = config.get("omantel_base_url", "https://apigw.omantel.om").rstrip("/")
+        self.client_id = config["omantel_client_id"]
+        self.client_secret = config["omantel_client_secret"]
+        self.scope = config.get("omantel_scope", "one-time-password-sms:send-validate")
+        self.sender = config.get("omantel_sender", "Lamma")
+        self.message_template = config.get("omantel_message", "Your Lamma code is {{code}}")
+        self._token: Optional[str] = None
+        self._token_expiry: float = 0
+
+    def _get_token(self) -> str:
+        """Get a cached or fresh OAuth2 access token."""
+        if self._token and time.time() < self._token_expiry:
+            return self._token
+        resp = http_requests.post(
+            f"{self.base_url}/oauth2/accesstoken",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "grant_type": "client_credentials",
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "scope": self.scope,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        self._token = data["access_token"]
+        # Refresh 60s before actual expiry
+        self._token_expiry = time.time() + int(data.get("expires_in", 3600)) - 60
+        logger.info("[Lamma] Omantel OAuth2 token acquired")
+        return self._token
+
+    def send_otp(self, phone: str) -> str:
+        """Send OTP via Omantel. Returns authenticationId."""
+        token = self._get_token()
+        resp = http_requests.post(
+            f"{self.base_url}/v1/otp/send-code",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "x-otp-sms-header": self.sender,
+            },
+            json={"phoneNumber": phone, "message": self.message_template},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        auth_id = resp.json()["authenticationId"]
+        logger.info("[Lamma] Omantel OTP sent to %s (authId=%s...)", phone, auth_id[:8])
+        return auth_id
+
+    def validate_otp(self, authentication_id: str, code: str) -> bool:
+        """Validate OTP via Omantel. Returns True if valid (HTTP 204)."""
+        token = self._get_token()
+        resp = http_requests.post(
+            f"{self.base_url}/v1/otp/validate-code",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "x-otp-sms-header": self.sender,
+            },
+            json={"authenticationId": authentication_id, "code": code},
+            timeout=15,
+        )
+        return resp.status_code == 204
 
 
 def _normalise_phone(phone: str) -> str:
@@ -127,28 +212,39 @@ class OtpV1StartResource(Resource):
         super().__init__()
         self._module = module
 
-    def render_POST(self, request: Request) -> bytes:
-        request.setHeader(b"Content-Type", b"application/json")
+    def render_POST(self, request: Request) -> object:
+        defer.ensureDeferred(self._start(request))
+        return NOT_DONE_YET
 
+    async def _start(self, request: Request) -> None:
         try:
             body = json.loads(request.content.read().decode("utf-8"))
         except Exception:
-            request.setResponseCode(http.BAD_REQUEST)
-            return json.dumps({"errcode": "M_BAD_JSON", "error": "Invalid JSON"}).encode()
+            _json_response(request, http.BAD_REQUEST,
+                           {"errcode": "M_BAD_JSON", "error": "Invalid JSON"})
+            return
 
         phone = _normalise_phone(body.get("phone_e164", ""))
         if not phone or not re.match(r"^\+[1-9]\d{7,14}$", phone):
-            request.setResponseCode(http.BAD_REQUEST)
-            return json.dumps(
-                {"errcode": "M_INVALID_PARAM", "error": "phone_e164 must be a valid E.164 number"}
-            ).encode()
+            _json_response(request, http.BAD_REQUEST,
+                           {"errcode": "M_INVALID_PARAM", "error": "phone_e164 must be a valid E.164 number"})
+            return
 
-        otp = "123456"  # DEV: fixed test OTP
-        _otp_store[phone] = (otp, time.time() + OTP_TTL)
+        if self._module.use_omantel:
+            try:
+                auth_id = await deferToThread(self._module.omantel.send_otp, phone)
+                _otp_store[phone] = (auth_id, time.time() + OTP_TTL)
+            except Exception as e:
+                logger.error("[Lamma] Omantel send failed for %s: %s", phone, e)
+                _json_response(request, http.INTERNAL_SERVER_ERROR,
+                               {"errcode": "M_UNKNOWN", "error": "Failed to send OTP via SMS"})
+                return
+        else:
+            otp = "123456"  # DEV: fixed test OTP
+            _otp_store[phone] = (otp, time.time() + OTP_TTL)
+            self._module._send_otp(phone, otp)
 
-        self._module._send_otp(phone, otp)
-
-        return json.dumps({"session_id": phone, "expires_in": OTP_TTL}).encode()
+        _json_response(request, http.OK, {"session_id": phone, "expires_in": OTP_TTL})
 
 
 class OtpV1VerifyResource(Resource):
@@ -192,17 +288,34 @@ class OtpV1VerifyResource(Resource):
                            {"errcode": "ORG_LAMMA_WRONG_CODE", "error": "No pending OTP for this number"})
             return
 
-        stored_otp, expiry = stored
+        stored_value, expiry = stored
         if time.time() > expiry:
             _otp_store.pop(phone, None)
             _json_response(request, http.UNAUTHORIZED,
                            {"errcode": "ORG_LAMMA_EXPIRED_CODE", "error": "OTP has expired"})
             return
 
-        if code != stored_otp:
-            _json_response(request, http.UNAUTHORIZED,
-                           {"errcode": "ORG_LAMMA_WRONG_CODE", "error": "Incorrect code"})
-            return
+        if self._module.use_omantel:
+            # stored_value is the Omantel authenticationId
+            try:
+                valid = await deferToThread(
+                    self._module.omantel.validate_otp, stored_value, code
+                )
+            except Exception as e:
+                logger.error("[Lamma] Omantel validate failed for %s: %s", phone, e)
+                _json_response(request, http.INTERNAL_SERVER_ERROR,
+                               {"errcode": "M_UNKNOWN", "error": "Failed to validate OTP"})
+                return
+            if not valid:
+                _json_response(request, http.UNAUTHORIZED,
+                               {"errcode": "ORG_LAMMA_WRONG_CODE", "error": "Incorrect code"})
+                return
+        else:
+            # Dev mode: stored_value is the OTP code itself
+            if code != stored_value:
+                _json_response(request, http.UNAUTHORIZED,
+                               {"errcode": "ORG_LAMMA_WRONG_CODE", "error": "Incorrect code"})
+                return
 
         # Consume the OTP
         _otp_store.pop(phone, None)
@@ -824,6 +937,16 @@ class LammaPhoneAuthModule:
     def __init__(self, config: dict, api: ModuleApi) -> None:
         self.api = api
         self.server_name = api.server_name
+
+        # Omantel OTP toggle: true = production (real SMS), false = dev (fixed code)
+        self.use_omantel: bool = config.get("use_omantel_otp", False)
+        self.omantel: Optional[OmantelOTPProvider] = None
+
+        if self.use_omantel:
+            self.omantel = OmantelOTPProvider(config)
+            logger.info("[Lamma] Omantel OTP ENABLED (production mode)")
+        else:
+            logger.info("[Lamma] Omantel OTP DISABLED (dev mode — fixed code 123456)")
 
         # Legacy endpoint
         api.register_web_resource(
