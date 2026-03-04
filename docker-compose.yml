@@ -1,21 +1,6 @@
-services:
+version: '3.8'
 
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    ports:
-      - 80:80
-      - 8008:8008
-      - 8448:8448
-      - 5000:5000
-      - 8090:8090
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - synapse
-      - element-web
-      - sygnal
-      - lk-jwt-service
+services:
 
   synapse:
     build:
@@ -30,8 +15,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    expose:
-      - 8008
+    ports:
+      - 8008:8008
     healthcheck:
       test: ["CMD", "curl", "-fSs", "http://localhost:8008/health"]
       interval: 15s
@@ -61,8 +46,8 @@ services:
     volumes:
       - ./sygnal-data:/data
       - ./sygnal-data/sygnal.yaml:/sygnal.yaml:ro
-    expose:
-      - 5000
+    ports:
+      - 5000:5000
     depends_on:
       synapse:
         condition: service_healthy
@@ -72,8 +57,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./element-config.json:/app/config.json:ro
-    expose:
-      - 80
+    ports:
+      - 8080:80
     depends_on:
       - synapse
 
@@ -104,8 +89,8 @@ services:
       - LIVEKIT_JWT_BIND=:8080
       - LIVEKIT_FULL_ACCESS_HOMESERVERS=lamma
       - LIVEKIT_INSECURE_SKIP_VERIFY_TLS=YES_I_KNOW_WHAT_I_AM_DOING
-    expose:
-      - 8080
+    ports:
+      - 8090:8080
     depends_on:
       livekit:
         condition: service_healthy

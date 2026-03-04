@@ -63,7 +63,16 @@ ip_range_whitelist:
 # Lamma phone auth module
 modules:
   - module: synapse.modules.lamma_phone_auth.LammaPhoneAuthModule
-    config: {}
+    config:
+      internal_password: "_lamma_otp_internal_"
+      # Set to true for production (real SMS via Omantel), false for dev (fixed code 123456)
+      use_omantel_otp: true
+      omantel_client_id: "rKSjSVACifmuGDEnewINGJZwsXAFE2hxHoAMUbpkYvkG4VRC"
+      omantel_client_secret: "MZjofveT09b8mWfT7QRhLwzLhpcFgarpaErZYYuGt6jQh9NyRVHyElLXpTSh0IgH"
+      omantel_scope: "one-time-password-sms:send-validate"
+      omantel_base_url: "https://apigw.omantel.om"
+      omantel_sender: "Lamma"
+      omantel_message: "Your Lamma code is {{code}}"
 
 # Enable MatrixRTC experimental features
 experimental_features:
