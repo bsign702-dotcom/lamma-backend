@@ -84,6 +84,12 @@ experimental_features:
 
 max_event_delay_duration: 24h
 
+# MatrixRTC transport config (MSC4143)
+matrix_rtc:
+  transports:
+    - type: "livekit"
+      livekit_service_url: "http://212.72.24.79:8090/sfu/get"
+
 # LiveKit SFU discovery via well-known
 extra_well_known_client_content:
   org.matrix.msc4143.rtc_foci:
