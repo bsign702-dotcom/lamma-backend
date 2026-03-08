@@ -17,6 +17,10 @@ services:
         condition: service_healthy
     ports:
       - 8008:8008
+    networks:
+      default:
+        aliases:
+          - lamma
     healthcheck:
       test: ["CMD", "curl", "-fSs", "http://localhost:8008/health"]
       interval: 15s
