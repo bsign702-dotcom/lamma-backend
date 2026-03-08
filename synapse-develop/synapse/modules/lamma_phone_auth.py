@@ -107,6 +107,8 @@ class OmantelOTPProvider:
     def send_otp(self, phone: str) -> str:
         """Send OTP via Omantel. Returns authenticationId."""
         token = self._get_token()
+        payload = {"phoneNumber": phone, "message": self.message_template}
+        logger.info("[Lamma] Omantel send-code request: phone=%s sender=%s", phone, self.sender)
         resp = http_requests.post(
             f"{self.base_url}/v1/otp/send-code",
             headers={
@@ -115,10 +117,15 @@ class OmantelOTPProvider:
                 "Accept": "application/json",
                 "x-otp-sms-header": self.sender,
             },
-            json={"phoneNumber": phone, "message": self.message_template},
+            json=payload,
             timeout=15,
         )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            logger.error(
+                "[Lamma] Omantel send-code failed: status=%s body=%s",
+                resp.status_code, resp.text[:500],
+            )
+            resp.raise_for_status()
         auth_id = resp.json()["authenticationId"]
         logger.info("[Lamma] Omantel OTP sent to %s (authId=%s...)", phone, auth_id[:8])
         return auth_id
