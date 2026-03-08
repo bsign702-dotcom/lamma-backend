@@ -92,9 +92,12 @@ matrix_rtc:
 
 # LiveKit SFU discovery via well-known
 extra_well_known_client_content:
+  org.matrix.msc3814:
+    auth: "http://212.72.24.79:8090"
+    url: "ws://212.72.24.79:7880"
   org.matrix.msc4143.rtc_foci:
     - type: "livekit"
-      livekit_service_url: "http://212.72.24.79:8090/sfu/get"
+      livekit_service_url: "http://212.72.24.79:8090"
   org.matrix.msc4156.native_group_call_support: {}
   io.element.call:
     url: "http://212.72.24.79:8082"

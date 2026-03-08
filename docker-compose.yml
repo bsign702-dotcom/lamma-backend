@@ -87,7 +87,7 @@ services:
     image: ghcr.io/element-hq/lk-jwt-service:latest
     restart: unless-stopped
     environment:
-      - LIVEKIT_URL=ws://212.72.24.79:7880
+      - LIVEKIT_URL=ws://livekit:7880
       - LIVEKIT_KEY=lamma_dev_key
       - LIVEKIT_SECRET=80ugLGtb2lpC6E0TgUXuhGP6GKrPirvooNO3cDkD03k=
       - LIVEKIT_JWT_BIND=:8080
