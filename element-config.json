@@ -1,7 +1,7 @@
 {
     "default_server_config": {
         "m.homeserver": {
-            "base_url": "http://localhost:8008",
+            "base_url": "https://lamma.ijmeet.com",
             "server_name": "lamma"
         },
         "m.identity_server": {

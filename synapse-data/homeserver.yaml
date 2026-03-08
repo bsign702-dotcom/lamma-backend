@@ -10,7 +10,7 @@
 # each option, go to docs/usage/configuration/config_documentation.md or
 # https://element-hq.github.io/synapse/latest/usage/configuration/config_documentation.html
 server_name: "lamma"
-public_baseurl: "http://212.72.24.79:8008/"
+public_baseurl: "https://lamma.ijmeet.com/"
 pid_file: /data/homeserver.pid
 listeners:
   - port: 8008
@@ -88,18 +88,18 @@ max_event_delay_duration: 24h
 matrix_rtc:
   transports:
     - type: "livekit"
-      livekit_service_url: "http://212.72.24.79:8090/sfu/get"
+      livekit_service_url: "https://lamma.ijmeet.com/sfu/get"
 
 # LiveKit SFU discovery via well-known
 extra_well_known_client_content:
   org.matrix.msc3814:
-    auth: "http://212.72.24.79:8090"
-    url: "ws://212.72.24.79:7880"
+    auth: "https://lamma.ijmeet.com"
+    url: "wss://lamma.ijmeet.com:7443"
   org.matrix.msc4143.rtc_foci:
     - type: "livekit"
-      livekit_service_url: "http://212.72.24.79:8090"
+      livekit_service_url: "https://lamma.ijmeet.com"
   org.matrix.msc4156.native_group_call_support: {}
   io.element.call:
-    url: "http://212.72.24.79:8082"
+    url: "https://lamma.ijmeet.com/call"
 
 # vim:ft=yaml
