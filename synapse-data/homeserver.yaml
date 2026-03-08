@@ -79,6 +79,8 @@ experimental_features:
   msc3266_enabled: true
   msc4222_enabled: true
   msc4140_enabled: true
+  msc4143_enabled: true
+  msc4156_enabled: true
 
 max_event_delay_duration: 24h
 
