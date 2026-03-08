@@ -1,0 +1,11 @@
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "http://212.72.24.79:8008",
+            "server_name": "lamma"
+        }
+    },
+    "livekit": {
+        "livekit_service_url": "http://212.72.24.79:8090/sfu/get"
+    }
+}

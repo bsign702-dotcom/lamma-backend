@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -E \"\\\\.\\(kt|java|xml\\)$\")"
+      "Bash(grep -E \"\\\\.\\(kt|java|xml\\)$\")",
+      "Read(//c/Users/ThaherTech/Documents/Lamma-android/**)"
     ]
   }
 }

@@ -100,3 +100,15 @@ services:
         condition: service_healthy
       synapse:
         condition: service_healthy
+
+  element-call:
+    image: ghcr.io/element-hq/element-call:latest
+    restart: unless-stopped
+    environment:
+      - ELEMENT_CALL_HOST=0.0.0.0
+    volumes:
+      - ./element-call-config.json:/app/config.json:ro
+    ports:
+      - 8082:8080
+    depends_on:
+      - synapse

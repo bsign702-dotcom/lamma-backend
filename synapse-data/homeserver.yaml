@@ -96,5 +96,7 @@ extra_well_known_client_content:
     - type: "livekit"
       livekit_service_url: "http://212.72.24.79:8090/sfu/get"
   org.matrix.msc4156.native_group_call_support: {}
+  io.element.call:
+    url: "http://212.72.24.79:8082"
 
 # vim:ft=yaml
